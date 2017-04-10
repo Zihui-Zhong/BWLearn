@@ -1,5 +1,5 @@
 
-local function starcraft(nbInput,nbAgent,nbActions,neuronesPerLayer,nbHiddenLayer)
+local function starcraft(nbInput,nbAgent,nbActions,neuronesPerLayer,nbHiddenLayer,pathToOldNetwork)
 	local perf = require 'twrl.perf'({nIterations = 1000, windowSize = 10})
 
 	local util = require 'twrl.util'()
@@ -32,6 +32,7 @@ local function starcraft(nbInput,nbAgent,nbActions,neuronesPerLayer,nbHiddenLaye
 	agentOpt.nbAgent = nbAgent
 	agentOpt.nHiddenLayerSize = neuronesPerLayer
 	agentOpt.nbLayers = nbHiddenLayer
+	agentOpt.NN = pathToOldNetwork
 	local agent = require 'twrl.agent.baseAgent'(agentOpt)
 
 	function predict(state)
@@ -46,9 +47,15 @@ local function starcraft(nbInput,nbAgent,nbActions,neuronesPerLayer,nbHiddenLaye
 		state = nextstate
 		action = nextaction
 	end
+	function save(path)
+		agent.save(path)
+	end
+
+
 	return {
 		predict = predict,
-		reward = reward
+		reward = reward,
+		save = save
 	}
 end
 return starcraft

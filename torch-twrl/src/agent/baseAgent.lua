@@ -13,7 +13,10 @@ local function getAgent(opt)
    local randomActionSampler = opt.randomActionSampler
    opt.nHiddenLayerSize = opt.nHiddenLayerSize or 10
 
-   if opt.model then
+   if opt.NN ~= nil then
+      local modelName = opt.model
+      model = torch.load(opt.NN)
+   elseif opt.model then
       local modelName = opt.model
       model = require('twrl.agent.model.' .. opt.model)({
          nInputs = envDetails.nbStates,
@@ -26,7 +29,7 @@ local function getAgent(opt)
          initialWeightVal = opt.initialWeightVal,
          traceType = opt.traceType
       })
-   print(model)
+
    end
    policy = require('twrl.agent.policy')[opt.policy]({
       client = opt.client,
@@ -116,9 +119,14 @@ local function getAgent(opt)
          end
       end
    end
+
+   function save(path)
+      torch.save(path,model)
+   end
    return {
       selectAction = selectAction,
-      reward = reward
+      reward = reward,
+      save = save
    }
 end
 return getAgent
