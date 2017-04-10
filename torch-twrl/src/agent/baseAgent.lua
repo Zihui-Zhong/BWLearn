@@ -26,7 +26,6 @@ local function getAgent(opt)
          traceType = opt.traceType
       })
    end
-
    policy = require('twrl.agent.policy')[opt.policy]({
       client = opt.client,
       instanceID = instanceID,
@@ -38,7 +37,8 @@ local function getAgent(opt)
       gamma = opt.gamma,
       lambda = opt.lambda,
       std = opt.policyStd,
-      randomActionSampler = randomActionSampler
+      randomActionSampler = randomActionSampler,
+      nbAgent = opt.nbAgent
    })
 
    local learn = require('twrl.agent.learningUpdate.' .. opt.learningUpdate)({

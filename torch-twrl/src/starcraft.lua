@@ -1,24 +1,24 @@
 
-local function starcraft(x,y,nbOut)
+local function starcraft(nbInput,nbAgent,nbActions)
 	local perf = require 'twrl.perf'({nIterations = 1000, windowSize = 10})
 
 	local util = require 'twrl.util'()
 	local agent = {
-	   policy = "categorical",
+	   policy = "multicategorical",
 	   learningUpdate = "reinforce",
 	   model = "mlp"
+
 	}
 	local nIterations = 200
 
 	local actionSpace = {}
 	actionSpace.name = "Discrete"
-	actionSpace.n = 6
+	actionSpace.n = nbAgent*nbActions
 
 	local stateSpace = {}
 	stateSpace.name = "Box"
 	stateSpace.shape = {}
-	stateSpace.shape[1] = x
-	stateSpace.shape[2] = y
+	stateSpace.shape[1] = nbInput
 
 
 	local agentOpt = {}
@@ -29,12 +29,12 @@ local function starcraft(x,y,nbOut)
 	agentOpt.policy = agent.policy
 	agentOpt.learningUpdate = agent.learningUpdate
 	agentOpt.envDetails = util.getStateAndActionSpecs(stateSpace, actionSpace)
-
+	agentOpt.nbAgent = nbAgent
 
 	local agent = require 'twrl.agent.baseAgent'(agentOpt)
 
 	function predict(state)
-		return agent.selectAction(nextState)
+		return agent.selectAction(state)
 	end
 	
 	function reward(nIter, reward, terminal , nextstate ,nextaction , nIter)

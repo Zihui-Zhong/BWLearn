@@ -1,6 +1,7 @@
 local function getStochasticModelPolicy(opt)
    -- function to sample actions based on the model
    local actionSampler = opt.actionSampler
+   local actionSamplers = require 'twrl.agent.policy.actionSamplers'
 
    local function getPolicy(opt)
       local opt = opt or {}
@@ -22,9 +23,11 @@ local function getStochasticModelPolicy(opt)
 
       local function selectAction(state)
          -- autocast state to a table, to handle cast to tensor
+
          local state = (type(state) == 'number') and {state} or state
          local obsv = torch.DoubleTensor(state):reshape(1,envDetails.nbStates)
          local out = model:forward(obsv)
+
          return actionSampler(out, opt)
       end
       return selectAction

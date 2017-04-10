@@ -1,4 +1,4 @@
-	 experiment(envName, agent, nSteps, nIterations, opt)
+local function experiment(envName, agent, nSteps, nIterations, opt)
    local util = require 'twrl.util'()
    local gymClient = require 'twrl.binding-lua.gym_http_client'
    local opt = opt or {}

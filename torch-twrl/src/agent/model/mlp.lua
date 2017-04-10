@@ -4,7 +4,7 @@ local function getModel(opt)
    local nOutputs = opt.nOutputs
    local nHiddenLayerSize = opt.nHiddenLayerSize
    local outputType = opt.outputType or 'categorical'
-   local finalLayer = outputType == 'categorical' and nn.SoftMax()
+   local finalLayer = (outputType == 'categorical' or outputType == 'multicategorical') and nn.SoftMax()
       or nn.Tanh()
 
    local net = nn.Sequential()

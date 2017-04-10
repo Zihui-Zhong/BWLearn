@@ -8,6 +8,9 @@ local policy = {
     categorical = require 'twrl.agent.policy.stochasticModelPolicy'({
              actionSampler = actionSamplers.categorical
         }),
+    multicategorical = require 'twrl.agent.policy.stochasticModelPolicy'({
+             actionSampler = actionSamplers.multicategorical
+        }),
     random = require 'twrl.agent.policy.random',
 }
 
