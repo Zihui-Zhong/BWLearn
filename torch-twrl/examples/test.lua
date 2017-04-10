@@ -1,5 +1,5 @@
 local sc = require 'twrl.starcraft'
-a = sc(4,5,6)
+a = sc(4,5,6,200,5)
 print("*****")
 print(sc)
 print(a)

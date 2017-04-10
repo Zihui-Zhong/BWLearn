@@ -11,20 +11,22 @@ local function getAgent(opt)
    local policy
    local learningUpdate
    local randomActionSampler = opt.randomActionSampler
-
    opt.nHiddenLayerSize = opt.nHiddenLayerSize or 10
+
    if opt.model then
       local modelName = opt.model
       model = require('twrl.agent.model.' .. opt.model)({
          nInputs = envDetails.nbStates,
          nOutputs = envDetails.nbActions,
          nHiddenLayerSize = opt.nHiddenLayerSize,
+      	 nbLayers = opt.nbLayers,
          envDetails = envDetails,
          numTilings = opt.numTilings,
          numTiles = opt.numTiles,
          initialWeightVal = opt.initialWeightVal,
          traceType = opt.traceType
       })
+   print(model)
    end
    policy = require('twrl.agent.policy')[opt.policy]({
       client = opt.client,

@@ -1,5 +1,5 @@
 
-local function starcraft(nbInput,nbAgent,nbActions)
+local function starcraft(nbInput,nbAgent,nbActions,neuronesPerLayer,nbHiddenLayer)
 	local perf = require 'twrl.perf'({nIterations = 1000, windowSize = 10})
 
 	local util = require 'twrl.util'()
@@ -30,7 +30,8 @@ local function starcraft(nbInput,nbAgent,nbActions)
 	agentOpt.learningUpdate = agent.learningUpdate
 	agentOpt.envDetails = util.getStateAndActionSpecs(stateSpace, actionSpace)
 	agentOpt.nbAgent = nbAgent
-
+	agentOpt.nHiddenLayerSize = neuronesPerLayer
+	agentOpt.nbLayers = nbHiddenLayer
 	local agent = require 'twrl.agent.baseAgent'(agentOpt)
 
 	function predict(state)
