@@ -13,28 +13,60 @@ function get_centre_de_masse(unit_vector)
     return centre_de_masse
 end	
 
+function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward)
+    local reward = 0
+    local index =0
+    for i, is_alive in ipairs(troop_alive) do
+        if (index >5) then
+	    if (is_alive == 1) then
+                reward = reward - 50
+	     end
+        elseif (is_alive == 1) then
+		reward = reward + 50
+	end
+	index = index +1
+    end
+
+    for uid_friendly, ut_friendly in pairs(friendly_units) do
+	reward = reward + ut_friendly.hp
+    end
+    for uid_enemy, ut_enemy in pairs(hostile_units) do
+	reward = reward - ut_enemy.hp
+    end
+    if (action == nil) then
+        reward = reward - 100
+    return reward
+end	
+
 function flee_direction(position, centre_de_masse)
     -- calculate the flee normalized vector
     local new_pos = {position[1] - centre_de_masse[1], position[2] - centre_de_masse[2]}
     return new_pos
 end
-function get_command(ai_action, units_uid, is_alive_vector,unit_vector) -- command can be from 1 to 29?
-    local uids_index = ai_action/6
+function get_command(ai_action, units_uid, is_alive_vector,tc) -- command can be from 1 to 29?
+    local uids_index = math.floor(ai_action/6)+1
     local action = ai_action%6
-    if (is_alive_vector[uids_index] == 0) then
+    if (is_alive_vector[units_uid[uids_index]] == 0) then
         return nil
     end
-    if (action == 6) then 
-        local centre_de_masse = get_centre_de_masse(unit_vector)
-        local position = flee_direction(unit_vector[uids_index].position, centre_de_masse)
+    if (action == 5) then 
+        local centre_de_masse = get_centre_de_masse(tc.state.units_enemy)
+	local position = nil
+	for uid, ut in pairs(tc.state.units_myself) do
+	    if (uid == units_uid[uids_index]) then
+		position = ut.position
+	    end
+	end
+        position = flee_direction(position, centre_de_masse)
         return tc.command(tc.command_unit_protected, units_uid[uids_index],
                                    tc.cmd.Move, -1,
                                    position[1], position[2])
+        
      else
-	if (is_alive_vector[action+5] == 0) then
+	if (is_alive_vector[units_uid[action+6]] == 0) then
 	    return nil
 	end
-        return tc.command(tc.command_unit_protected, units_uid[uids_index], tc.cmd.Attack_Unit, 5+action)
+        return tc.command(tc.command_unit_protected, units_uid[uids_index], tc.cmd.Attack_Unit, units_uid[6+action])
      end
 end
 
@@ -95,8 +127,7 @@ local nloop = 1
 
 -- no ',' accepted in map names!
 -- All paths must be relative to C:/StarCraft
-local maps = {'Maps/BroodWar/micro/dragoons_zealots.scm',
-              'Maps/BroodWar/micro/m5v5_c_far.scm'}
+local maps = {'Maps/BroodWar/micro/m5v5_c_far.scm'}
 
 tc.micro_battles = true
 -- This overwrites whatever is in bwapi.ini
@@ -131,7 +162,7 @@ opt.nbAgent = 5   -- nb unit to control
 opt.nbActions = 6 -- nb action per unit
 opt.neuronesPerLayer= 200
 opt.nbHiddenLayer = 5
-opt.networktype = "mlp"
+opt.networktype = ""
 opt.nIterations = 200
 opt.epsilon = 0.1 -- RAndom action chance 
 opt.epsilonMinValue = 0.0001
@@ -139,7 +170,7 @@ opt.epsilonDecayRate = 0.999
 opt.gamma = 1
 opt.lambda = 0.9
 opt.policyStd = 0.1
-opt.learningType = "batch"
+opt.learningType = "noBatch"
 opt.tdLearnUpdate = "qLearning"
 opt.baselineType = "padTimeDepAvReturn"
 opt.stepsizeStart = 0.3
@@ -154,9 +185,10 @@ opt.optimAlpha = 0.9
 opt.optimType = "rmsprop"
 opt.verboseUpdate= false
 opt.initialWeightVal = -0.01
-a = sc(opt)
+opt.tdLearnUpdate = "SARSA"
+local model = sc(opt)
 
-while total_battles < 2 do
+while total_battles < 200 do
 
     print("")
     print("CTRL-C to stop")
@@ -171,9 +203,12 @@ while total_battles < 2 do
 
     local tm = torch.Timer()
     local taking_uid = true
+    local compute_reward = false
     local uids = {}
     local troop_action = {}
     local troop_alive = {}
+    local lastAction = nil
+    local lastState = nil
     while not tc.state.game_ended do
         local done = false
 
@@ -190,6 +225,14 @@ while total_battles < 2 do
             if DEBUG > 0 then
                 print("BATTLE ENDED")
             end
+	    model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), true , lastState ,lastAction )
+	    taking_uid = true
+    	    compute_reward = false
+    	    uids = {}
+    	    troop_action = {}
+    	    troop_alive = {}
+            lastAction = nil
+            lastState = nil
             if tc.state.battle_won then -- we won (in micro battles)
                 battles_won = battles_won + 1
             end
@@ -222,7 +265,7 @@ while total_battles < 2 do
 			troop_action[uid_enemy] = 999
 			troop_alive[uid_enemy] = 1
 		    end
-		    print(uids) 
+		    --print(uids) 
 		    taking_uid = false
 		end
                 units = {}
@@ -264,23 +307,33 @@ while total_battles < 2 do
 		
 		end
 		-- call the actions shenenigan here
-                --[[for uid, ut in pairs(tc.state.units_myself) do
-	            print(ut)
+               --[[for uid, ut in pairs(tc.state.units_myself) do
+	            --print(ut)
                     local target = get_closest(ut.position,
                                                tc.state.units_enemy)
-	   	    print(target)
+	   	    --print(target)
                     if target ~= nil then
                         table.insert(actions,
-                            tc.command(tc.command_unit_protected, uid,
-                                        tc.cmd.Attack_Unit, target))
+                            tc.command(tc.command_unit_protected, uid,tc.cmd.Attack_Unit, target))
                     end
-                end--]]
+                end
                 for uid, ut in pairs(tc.state.units_myself) do
 			local position = flee_direction(ut.position, get_centre_de_masse(tc.state.units_enemy))
                         table.insert(actions, tc.command(tc.command_unit_protected, uid,
                                    tc.cmd.Move, -1,
                                    position[1], position[2]))
+                end]]--
+		
+		local action = model.predict(units)
+
+		if (compute_reward) then
+		    model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), false , lastState ,lastAction )
                 end
+                compute_reward = true
+		lastAction = action
+		lastState = units
+		local command = get_command(action, uids, troop_alive,tc)
+		table.insert(actions,command)
                 if frames_in_battle > 2*60*24 then -- quit after ~ 2 hours
                     actions = {tc.command(tc.quit)}
                     nrestarts = nrestarts + 1
