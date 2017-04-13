@@ -42,7 +42,7 @@ local function getAgent(opt)
       gamma = opt.gamma,
       lambda = opt.lambda,
       std = opt.policyStd,
-      randomActionSampler = randomActionSampler,
+      randomActionSampler = randomActionSampler ,
       nbAgent = opt.nbAgent
    })
 

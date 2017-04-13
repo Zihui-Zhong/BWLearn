@@ -23,24 +23,15 @@ local function experiment(envName, agent, nSteps, nIterations, opt)
          agentOpt.learningUpdate = agent.learningUpdate
          agentOpt.envDetails = util.getStateAndActionSpecs(agentOpt.stateSpace, agentOpt.actionSpace)
          function agentOpt.randomActionSampler() return client:env_action_space_sample(instanceID) end
-      print(agentOpt)
-      local agent = require 'twrl.agent.baseAgent'(agentOpt)
-      local iterPerformance = {}
-      print("*****************")
-      print("*****************")
-      print("*****************")
-      print("*****************")
+      print(agentOpt.envDetails)
       print(agentOpt.actionSpace)
       print(agentOpt.stateSpace)
-      print("*****************")
-      print("*****************")
-      print("*****************")
-      print("*****************")
+      local agent = require 'twrl.agent.baseAgent'(agentOpt)
+      local iterPerformance = {}
+
       for nIter = 1, nIterations do
          perf.reset()
          local state = client:env_reset(instanceID)
-         print(state)
-         print(instanceID)
          local action = agent.selectAction(state)
          for i = 1, nSteps do
             local nextState, reward, terminal, _ = client:env_step(instanceID, action, render)
@@ -48,8 +39,9 @@ local function experiment(envName, agent, nSteps, nIterations, opt)
             perf.addReward(nIter, reward, terminal)
             nextAction = agent.selectAction(nextState)
 
-
-            agent.reward({state = state, action = action, reward = reward, nextState = nextState, nextAction = nextAction, terminal = terminal, nIter = nIter})
+	    local rewardOpt = {state = state, action = action, reward = reward, nextState = nextState, nextAction = nextAction, terminal = terminal, nIter = nIter}
+	    print(rewardOpt)
+            agent.reward(rewardOpt)
             -- update state and action
             state = nextState
             action = nextAction
