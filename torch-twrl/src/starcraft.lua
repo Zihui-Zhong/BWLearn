@@ -34,6 +34,7 @@ local function starcraft(opt)
 	local actionSpace = {}
 	actionSpace.name = "Discrete"
 	actionSpace.n = nbAgent*nbActions
+	
 
 	local stateSpace = {}
 	stateSpace.name = "Box"
@@ -85,7 +86,7 @@ local function starcraft(opt)
 	agentOpt.optimType = opt.optimType
 	agentOpt.verboseUpdate = opt.verboseUpdate	
 	agentOpt.initialWeightVal = opt.initialWeightVal
-	
+	agentOpt.tdLearnUpdate = opt.tdLearnUpdate
 	local agent = require 'twrl.agent.baseAgent'(agentOpt)
 
 	function predict(state)

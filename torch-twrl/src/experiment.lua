@@ -40,7 +40,6 @@ local function experiment(envName, agent, nSteps, nIterations, opt)
             nextAction = agent.selectAction(nextState)
 
 	    local rewardOpt = {state = state, action = action, reward = reward, nextState = nextState, nextAction = nextAction, terminal = terminal, nIter = nIter}
-	    print(rewardOpt)
             agent.reward(rewardOpt)
             -- update state and action
             state = nextState

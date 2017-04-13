@@ -13,11 +13,15 @@ local function getPolicy(opt)
 
    local function selectAction(state)
       local action
-      if math.random() < epsilon then
+      local temp = math.random()
+      if  temp < epsilon then
+         
          action = randomActionSampler()
          model.eligibility:zero()
       else
+         
          local qVals = model.estimateAllQ(state, model.weights)
+
          local maxQ, maxIdx = qVals:max(1)
          action = maxIdx[1] - 1
          -- actions are 0 based for gym

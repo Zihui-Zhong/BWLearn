@@ -12,7 +12,6 @@ local function getModel(opt)
    local eligibility = torch.FloatTensor((numTilings * memorySize) + 1):zero():fill(0)
 
    local function getFeatures(state, action)
-
       local floats = {}
       for i = 1, envDetails.nbStates do
          if envDetails.stateSpec.high[i] > 1000 then
