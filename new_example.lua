@@ -18,8 +18,8 @@ function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward)
     local index =0
     for i, is_alive in ipairs(troop_alive) do
         if (index >5) then
-	    if (is_alive == 1) then
-                reward = reward - 50
+	    if (is_alive == 0) then
+                reward = reward + 50
 	     end
         elseif (is_alive == 1) then
 		reward = reward + 50
@@ -31,10 +31,11 @@ function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward)
 	reward = reward + ut_friendly.hp
     end
     for uid_enemy, ut_enemy in pairs(hostile_units) do
-	reward = reward - ut_enemy.hp
+	reward = reward + (50 - ut_enemy.hp)
     end
     if (action == nil) then
-        reward = reward - 100
+        --reward = reward - 100
+    end 
     return reward
 end	
 
@@ -60,7 +61,7 @@ function get_command(ai_action, units_uid, is_alive_vector,tc) -- command can be
         position = flee_direction(position, centre_de_masse)
         return tc.command(tc.command_unit_protected, units_uid[uids_index],
                                    tc.cmd.Move, -1,
-                                   position[1], position[2])
+                                  position[1], position[2])
         
      else
 	if (is_alive_vector[units_uid[action+6]] == 0) then
@@ -83,6 +84,7 @@ local DEBUG = 0 -- can take values 0, 1, 2 (from no output to most verbose)
 require 'torch'
 torch.setdefaulttensortype('torch.FloatTensor')
 require 'sys'
+require 'gnuplot'
 local lapp = require 'pl.lapp'
 local args = lapp [[
 Baselines for Starcraft
@@ -90,7 +92,14 @@ Baselines for Starcraft
     -p,--port           (default 11111) Port for torchcraft. Do 0 to grab vm from cloud
 ]]
 
-local skip_frames = 7
+local lapp = require 'pl.lapp'
+local args = lapp [[
+Baselines for Starcraft
+    -t,--hostname       (default "")    Give hostname / ip pointing to VM
+    -p,--port           (default 11111) Port for torchcraft. Do 0 to grab vm from cloud
+]]
+
+local skip_frames = 4
 local port = args.port
 local hostname = args.hostname or ""
 print("hostname:", hostname)
@@ -188,7 +197,9 @@ opt.initialWeightVal = -0.01
 opt.tdLearnUpdate = "SARSA"
 local model = sc(opt)
 
-while total_battles < 200 do
+local score = {}
+
+while total_battles < 2000 do
 
     print("")
     print("CTRL-C to stop")
@@ -202,6 +213,7 @@ while total_battles < 200 do
     tc:set_variables()
 
     local tm = torch.Timer()
+    local gameTimer = os.time()
     local taking_uid = true
     local compute_reward = false
     local uids = {}
@@ -209,9 +221,11 @@ while total_battles < 200 do
     local troop_alive = {}
     local lastAction = nil
     local lastState = nil
+    local lastScore = 0
+    local failed = false
     while not tc.state.game_ended do
         local done = false
-
+	print(gameTimer)
         update = tc:receive()
         if DEBUG > 1 then
             print('Received update: ', update)
@@ -225,9 +239,17 @@ while total_battles < 200 do
             if DEBUG > 0 then
                 print("BATTLE ENDED")
             end
-	    model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), true , lastState ,lastAction )
+	    if (failed) then
+		model.reward(units,action, total_battles, -500, true , lastState ,lastAction )
+	        --table.insert(score,-500)
+            else
+		model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), true , lastState ,lastAction )
+	        table.insert(score,get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive))
+	    end
 	    taking_uid = true
     	    compute_reward = false
+	    lastScore = 0
+	    failed = false
     	    uids = {}
     	    troop_action = {}
     	    troop_alive = {}
@@ -306,38 +328,39 @@ while total_battles < 200 do
 			end
 		
 		end
-		-- call the actions shenenigan here
-               --[[for uid, ut in pairs(tc.state.units_myself) do
-	            --print(ut)
-                    local target = get_closest(ut.position,
-                                               tc.state.units_enemy)
-	   	    --print(target)
-                    if target ~= nil then
-                        table.insert(actions,
-                            tc.command(tc.command_unit_protected, uid,tc.cmd.Attack_Unit, target))
-                    end
-                end
-                for uid, ut in pairs(tc.state.units_myself) do
-			local position = flee_direction(ut.position, get_centre_de_masse(tc.state.units_enemy))
-                        table.insert(actions, tc.command(tc.command_unit_protected, uid,
-                                   tc.cmd.Move, -1,
-                                   position[1], position[2]))
-                end]]--
+		-- if the AI get stuck in a stupid pattern we override the command stop the learning and go suicide so we can start back from scratch
+		if ((os.time() - gameTimer) > 8 ) then
+			--call the actions shenenigan here
+		        for uid, ut in pairs(tc.state.units_myself) do
+			    --print(ut)
+		            local target = get_closest(ut.position,
+		                                       tc.state.units_enemy)
+		   	    --print(target)
+		            if target ~= nil then
+		                table.insert(actions,
+		                    tc.command(tc.command_unit_protected, uid,tc.cmd.Attack_Unit, target))
+		            end
+		        end
+			failed = true
+		else
 		
-		local action = model.predict(units)
-
-		if (compute_reward) then
-		    model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), false , lastState ,lastAction )
-                end
-                compute_reward = true
-		lastAction = action
-		lastState = units
-		local command = get_command(action, uids, troop_alive,tc)
-		table.insert(actions,command)
-                if frames_in_battle > 2*60*24 then -- quit after ~ 2 hours
-                    actions = {tc.command(tc.quit)}
-                    nrestarts = nrestarts + 1
-                end
+			local action = model.predict(units)
+			local score = 0
+			if (compute_reward) then
+			    score = get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive)  
+			    model.reward(units,action, total_battles, score, false , lastState ,lastAction )
+		        end
+		        compute_reward = true
+			lastAction = action
+			lastState = units
+			lastScore = score
+			local command = get_command(action, uids, troop_alive,tc)
+			table.insert(actions,command)
+		end
+                --if frames_in_battle > 2*60*24 then -- quit after ~ 2 hours
+                    --actions = {tc.command(tc.quit)}
+                    --nrestarts = nrestarts + 1
+                --end
                 progress:pop()
             end
         end
@@ -379,7 +402,18 @@ while total_battles < 200 do
     collectgarbage()
     collectgarbage()
 end
+pythonString = "{"
 
+--print(score)
+firstPrint = true
+index = 0
+meanScore = 0
+file = io.open("data.txt", "a")
+io.output(file)
+for i, number in ipairs(score) do
+    io.write(number, "\n")
+
+end
+io.close(file)
 tc:receive()
 tc:send({table.concat({tc.command(tc.exit_process)})})
-print("")
