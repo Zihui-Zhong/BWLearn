@@ -13,7 +13,7 @@ function get_centre_de_masse(unit_vector)
     return centre_de_masse
 end	
 
-function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward)
+function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward, terminal)
     local reward = 0
     local index =0
     for i, is_alive in ipairs(troop_alive) do
@@ -33,7 +33,7 @@ function get_reward(friendly_units,hostile_units,troop_alive,action, lastReward)
     for uid_enemy, ut_enemy in pairs(hostile_units) do
 	reward = reward + (50 - ut_enemy.hp)
     end
-    if (action == nil) then
+    if (action == nil and terminal ~= true) then
         --reward = reward - 100
     end 
     return reward
@@ -195,11 +195,13 @@ opt.optimType = "rmsprop"
 opt.verboseUpdate= false
 opt.initialWeightVal = -0.01
 opt.tdLearnUpdate = "SARSA"
+--opt.pathToOldNetwork = "oldModel"
 local model = sc(opt)
 
 local score = {}
-
-while total_battles < 2000 do
+local winRatio = {}
+local maxBattlesBeforeRestart = 200
+while total_battles < 40000 do
 
     print("")
     print("CTRL-C to stop")
@@ -225,7 +227,6 @@ while total_battles < 2000 do
     local failed = false
     while not tc.state.game_ended do
         local done = false
-	print(gameTimer)
         update = tc:receive()
         if DEBUG > 1 then
             print('Received update: ', update)
@@ -243,8 +244,8 @@ while total_battles < 2000 do
 		model.reward(units,action, total_battles, -500, true , lastState ,lastAction )
 	        --table.insert(score,-500)
             else
-		model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive), true , lastState ,lastAction )
-	        table.insert(score,get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive))
+		model.reward(units,action, total_battles, get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive, true), true , lastState ,lastAction )
+	        table.insert(score,get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive,true))
 	    end
 	    taking_uid = true
     	    compute_reward = false
@@ -255,13 +256,14 @@ while total_battles < 2000 do
     	    troop_alive = {}
             lastAction = nil
             lastState = nil
+	    gameTimer = os.time()
             if tc.state.battle_won then -- we won (in micro battles)
                 battles_won = battles_won + 1
             end
             battles_game = battles_game + 1
             total_battles = total_battles + 1
             frames_in_battle = 0
-            if battles_game >= 10 then -- this is an example
+            if battles_game >= maxBattlesBeforeRestart then -- this is an example
                 done = true
             end
         elseif tc.state.waiting_for_restart then
@@ -347,8 +349,8 @@ while total_battles < 2000 do
 			local action = model.predict(units)
 			local score = 0
 			if (compute_reward) then
-			    score = get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive)  
-			    model.reward(units,action, total_battles, score, false , lastState ,lastAction )
+			    score = get_reward(tc.state.units_myself,tc.state.units_enemy, troop_alive, false)  
+			    model.reward(units,action, total_battles, score, false , lastState ,lastAction, false )
 		        end
 		        compute_reward = true
 			lastAction = action
@@ -372,7 +374,10 @@ while total_battles < 2000 do
         progress:add('#Bttls', battles_game, '%4d')
         progress:push()
         tm:reset()
-        if done then break end -- So the last progress bar update happens
+        if done then
+	    table.insert(winRatio,battles_won / (battles_game+1E-6))
+	    break 
+        end -- So the last progress bar update happens
 
         if DEBUG > 1 then
             print("")
@@ -402,15 +407,16 @@ while total_battles < 2000 do
     collectgarbage()
     collectgarbage()
 end
-pythonString = "{"
-
---print(score)
-firstPrint = true
-index = 0
-meanScore = 0
-file = io.open("data.txt", "a")
+file = io.open("score.txt", "a")
 io.output(file)
 for i, number in ipairs(score) do
+    io.write(number, "\n")
+
+end
+io.close(file)
+file = io.open("winRatio.txt", "a")
+io.output(file)
+for i, number in ipairs(winRatio) do
     io.write(number, "\n")
 
 end
